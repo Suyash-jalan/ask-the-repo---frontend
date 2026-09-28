@@ -477,8 +477,8 @@
                     : 'http://127.0.0.1:8000';
             }
             
-            // Deployed (e.g. Vercel) but no URL saved yet
-            return 'http://127.0.0.1:8000';
+            // Deployed (e.g. Vercel) default to live Render backend
+            return 'https://ask-the-repo-backend.onrender.com';
         }
 
         let API_URL = getApiUrl();
@@ -506,13 +506,6 @@
         // Initialize label on load
         window.addEventListener('DOMContentLoaded', () => {
             updateApiLabel();
-            // Prompt if deployed on Vercel without a configured backend
-            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            if (!isLocal && !localStorage.getItem('asktherepo_backend_url')) {
-                setTimeout(() => {
-                    configureBackendUrl();
-                }, 800);
-            }
         });
 
         // ── State (plain JS variable only — no storage APIs) ──
