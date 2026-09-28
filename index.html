@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AskTheRepo — ask questions about any public GitHub repository using AI-powered code analysis.">
+    <title>AskTheRepo — AI Codebase Q&amp;A</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: rgba(17, 24, 39, 0.7);
+            --bg-input: rgba(30, 41, 59, 0.6);
+            --border: rgba(99, 102, 241, 0.2);
+            --border-focus: rgba(99, 102, 241, 0.6);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent: #818cf8;
+            --accent-hover: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.25);
+            --success: #34d399;
+            --error: #f87171;
+            --warning: #fbbf24;
+            --user-bubble: rgba(99, 102, 241, 0.15);
+            --agent-bubble: rgba(30, 41, 59, 0.8);
+            --radius: 12px;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        /* Animated background gradient */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.15), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 100%, rgba(139, 92, 246, 0.08), transparent);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 780px;
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        .header {
+            text-align: center;
+            padding: 40px 0 32px;
+            animation: fadeDown 0.6s ease-out;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #c7d2fe, var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .api-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 4px 14px;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .api-badge:hover {
+            color: var(--text-primary);
+            border-color: var(--border-focus);
+            background: rgba(99, 102, 241, 0.15);
+        }
+
+        .api-badge .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+
+        /* ── Repo Input ── */
+        .repo-input-section {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            margin-bottom: 20px;
+            animation: fadeUp 0.5s ease-out 0.1s both;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-row input {
+            flex: 1;
+            padding: 12px 16px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.92rem;
+            font-family: inherit;
+            outline: none;
+            transition: border var(--transition), box-shadow var(--transition);
+        }
+
+        .input-row input:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .input-row input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+            color: #fff;
+            box-shadow: 0 2px 12px var(--accent-glow);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--error);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.25);
+        }
+
+        /* ── Status ── */
+        .status-bar {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            margin-top: 16px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            animation: fadeUp 0.3s ease-out;
+        }
+
+        .status-bar.visible { display: flex; }
+
+        .status-bar.cloning, .status-bar.indexing {
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            color: var(--accent);
+        }
+
+        .status-bar.ready {
+            background: rgba(52, 211, 153, 0.1);
+            border: 1px solid rgba(52, 211, 153, 0.2);
+            color: var(--success);
+        }
+
+        .status-bar.error {
+            background: rgba(248, 113, 113, 0.1);
+            border: 1px solid rgba(248, 113, 113, 0.2);
+            color: var(--error);
+        }
+
+        .spinner {
+            width: 16px; height: 16px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        /* ── Chat ── */
+        .chat-section {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            animation: fadeUp 0.4s ease-out;
+            min-height: 400px;
+        }
+
+        .chat-section.visible {
+            display: flex;
+        }
+
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.5);
+        }
+
+        .chat-header .repo-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--accent);
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            scroll-behavior: smooth;
+        }
+
+        .messages::-webkit-scrollbar { width: 5px; }
+        .messages::-webkit-scrollbar-track { background: transparent; }
+        .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        .message {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            animation: fadeUp 0.25s ease-out;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background: var(--user-bubble);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            color: var(--text-primary);
+        }
+
+        .message.agent {
+            align-self: flex-start;
+            background: var(--agent-bubble);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .message.agent .label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .message.thinking {
+            align-self: flex-start;
+            background: var(--agent-bubble);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* ── Chat input ── */
+        .chat-input-row {
+            display: flex;
+            gap: 10px;
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.5);
+        }
+
+        .chat-input-row input {
+            flex: 1;
+            padding: 12px 16px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-family: inherit;
+            outline: none;
+            transition: border var(--transition), box-shadow var(--transition);
+        }
+
+        .chat-input-row input:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .chat-input-row input::placeholder { color: var(--text-muted); }
+
+        /* ── Expired overlay ── */
+        .expired-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: rgba(10, 14, 26, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .expired-overlay.visible {
+            display: flex;
+        }
+
+        .expired-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 36px;
+            text-align: center;
+            max-width: 400px;
+            animation: fadeUp 0.4s ease-out;
+        }
+
+        .expired-card h2 {
+            color: var(--warning);
+            margin-bottom: 12px;
+        }
+
+        .expired-card p {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+
+        /* ── Animations ── */
+        @keyframes fadeDown {
+            from { opacity: 0; transform: translateY(-16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 600px) {
+            .header h1 { font-size: 1.6rem; }
+            .input-row { flex-direction: column; }
+            .btn { width: 100%; justify-content: center; }
+            .message { max-width: 95%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>AskTheRepo</h1>
+            <p>Paste any public GitHub repo URL and ask questions about the codebase</p>
+            <div>
+                <div class="api-badge" onclick="configureBackendUrl()" title="Click to connect to your Render Backend URL">
+                    <span class="dot"></span> Backend: <strong id="apiLabel">connecting...</strong> <span style="opacity:0.6; margin-left:4px;">⚙️</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Repo URL Input -->
+        <div class="repo-input-section" id="repoSection">
+            <div class="input-row">
+                <input type="url" id="repoUrl" placeholder="https://github.com/owner/repo" autocomplete="off" />
+                <button class="btn btn-primary" id="analyzeBtn" onclick="startSession()">
+                    Analyze
+                </button>
+            </div>
+            <div class="status-bar" id="statusBar">
+                <div class="spinner" id="statusSpinner"></div>
+                <span id="statusText"></span>
+            </div>
+        </div>
+
+        <!-- Chat UI -->
+        <div class="chat-section" id="chatSection">
+            <div class="chat-header">
+                <span class="repo-name" id="repoLabel"></span>
+                <button class="btn btn-danger" onclick="endSession()">End Session</button>
+            </div>
+            <div class="messages" id="messages"></div>
+            <div class="chat-input-row">
+                <input type="text" id="chatInput" placeholder="Ask about the codebase…" maxlength="1000"
+                       onkeydown="if(event.key==='Enter')sendMessage()" autocomplete="off" />
+                <button class="btn btn-primary" id="sendBtn" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+
+        <!-- Expired overlay -->
+        <div class="expired-overlay" id="expiredOverlay">
+            <div class="expired-card">
+                <h2>Session Expired</h2>
+                <p>Your session has ended or timed out. Please enter a repository URL to start again.</p>
+                <button class="btn btn-primary" onclick="resetUI()">Start Over</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ── Backend Configuration ──
+        function getApiUrl() {
+            const saved = localStorage.getItem('asktherepo_backend_url');
+            if (saved && saved.trim()) return saved.trim().replace(/\/+$/, '');
+            
+            // Running on localhost or 127.0.0.1
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                return (window.location.origin && window.location.origin !== 'null' && window.location.origin.includes(':8000'))
+                    ? window.location.origin
+                    : 'http://127.0.0.1:8000';
+            }
+            
+            // Deployed (e.g. Vercel) but no URL saved yet
+            return 'http://127.0.0.1:8000';
+        }
+
+        let API_URL = getApiUrl();
+
+        function updateApiLabel() {
+            API_URL = getApiUrl();
+            const lbl = document.getElementById('apiLabel');
+            if (lbl) lbl.textContent = API_URL;
+        }
+
+        function configureBackendUrl() {
+            const current = getApiUrl();
+            const next = prompt(
+                "Enter your deployed Render Backend URL\n(e.g., https://your-app.onrender.com):",
+                current
+            );
+            if (next !== null && next.trim()) {
+                const formatted = next.trim().replace(/\/+$/, '');
+                localStorage.setItem('asktherepo_backend_url', formatted);
+                updateApiLabel();
+                alert(`Backend API updated to: ${formatted}`);
+            }
+        }
+
+        // Initialize label on load
+        window.addEventListener('DOMContentLoaded', () => {
+            updateApiLabel();
+            // Prompt if deployed on Vercel without a configured backend
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            if (!isLocal && !localStorage.getItem('asktherepo_backend_url')) {
+                setTimeout(() => {
+                    configureBackendUrl();
+                }, 800);
+            }
+        });
+
+        // ── State (plain JS variable only — no storage APIs) ──
+        let sessionId = null;
+        let pollInterval = null;
+
+        // ── DOM refs ──
+        const repoUrlInput  = document.getElementById('repoUrl');
+        const analyzeBtn    = document.getElementById('analyzeBtn');
+        const statusBar     = document.getElementById('statusBar');
+        const statusSpinner = document.getElementById('statusSpinner');
+        const statusText    = document.getElementById('statusText');
+        const chatSection   = document.getElementById('chatSection');
+        const repoLabel     = document.getElementById('repoLabel');
+        const messagesDiv   = document.getElementById('messages');
+        const chatInput     = document.getElementById('chatInput');
+        const sendBtn       = document.getElementById('sendBtn');
+        const expiredOverlay= document.getElementById('expiredOverlay');
+        const repoSection   = document.getElementById('repoSection');
+
+        // ── Start Session ──
+        async function startSession() {
+            const url = repoUrlInput.value.trim();
+            if (!url) return;
+
+            analyzeBtn.disabled = true;
+            showStatus('cloning', 'Starting analysis…');
+
+            try {
+                const res = await fetch(API_URL + '/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ repo_url: url }),
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showStatus('error', data.detail || 'Failed to start session.');
+                    analyzeBtn.disabled = false;
+                    return;
+                }
+
+                sessionId = data.session_id;
+                pollStatus();
+            } catch (err) {
+                showStatus('error', 'Network error. Is the server running?');
+                analyzeBtn.disabled = false;
+            }
+        }
+
+        // ── Poll Status ──
+        function pollStatus() {
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(async () => {
+                if (!sessionId) { clearInterval(pollInterval); return; }
+
+                try {
+                    const res = await fetch(API_URL + '/status/' + sessionId);
+                    if (res.status === 404) {
+                        clearInterval(pollInterval);
+                        showExpired();
+                        return;
+                    }
+
+                    const data = await res.json();
+
+                    if (data.status === 'cloning') {
+                        showStatus('cloning', 'Cloning repository…');
+                    } else if (data.status === 'indexing') {
+                        showStatus('indexing', 'Indexing code, docs & commits…');
+                    } else if (data.status === 'ready') {
+                        clearInterval(pollInterval);
+                        showStatus('ready', 'Ready! Ask away.');
+                        openChat();
+                    } else if (data.status === 'error') {
+                        clearInterval(pollInterval);
+                        showStatus('error', data.error || 'An error occurred.');
+                        analyzeBtn.disabled = false;
+                    }
+                } catch {
+                    /* network hiccup — keep polling */
+                }
+            }, 2000);
+        }
+
+        // ── Chat ──
+        function openChat() {
+            const url = repoUrlInput.value.trim();
+            const parts = url.replace(/\.git$/, '').split('/');
+            repoLabel.textContent = parts.slice(-2).join('/');
+            repoSection.style.display = 'none';
+            chatSection.classList.add('visible');
+            chatInput.focus();
+        }
+
+        async function sendMessage() {
+            const question = chatInput.value.trim();
+            if (!question || !sessionId) return;
+
+            addMessage(question, 'user');
+            chatInput.value = '';
+            sendBtn.disabled = true;
+
+            const thinkingEl = addMessage('Thinking…', 'thinking');
+
+            try {
+                const res = await fetch(API_URL + '/chat/' + sessionId, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question }),
+                });
+
+                thinkingEl.remove();
+
+                if (res.status === 404) {
+                    showExpired();
+                    return;
+                }
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    addMessage(data.detail || 'Error getting response.', 'agent');
+                } else {
+                    addMessage(data.answer, 'agent');
+                }
+            } catch {
+                thinkingEl.remove();
+                addMessage('Network error. Please try again.', 'agent');
+            } finally {
+                sendBtn.disabled = false;
+                chatInput.focus();
+            }
+        }
+
+        function addMessage(text, type) {
+            const div = document.createElement('div');
+            div.className = 'message ' + type;
+            if (type === 'agent') {
+                div.innerHTML = '<span class="label">Agent</span>' + escapeHtml(text);
+            } else {
+                div.textContent = text;
+            }
+            messagesDiv.appendChild(div);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            return div;
+        }
+
+        function escapeHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        // ── End Session ──
+        async function endSession() {
+            if (!sessionId) return;
+            const sid = sessionId;
+            sessionId = null;
+            if (pollInterval) clearInterval(pollInterval);
+
+            try {
+                await fetch(API_URL + '/end/' + sid, { method: 'POST' });
+            } catch { /* best-effort */ }
+
+            resetUI();
+        }
+
+        // ── Expired ──
+        function showExpired() {
+            sessionId = null;
+            if (pollInterval) clearInterval(pollInterval);
+            expiredOverlay.classList.add('visible');
+        }
+
+        function resetUI() {
+            sessionId = null;
+            expiredOverlay.classList.remove('visible');
+            chatSection.classList.remove('visible');
+            repoSection.style.display = '';
+            statusBar.classList.remove('visible');
+            statusBar.className = 'status-bar';
+            messagesDiv.innerHTML = '';
+            repoUrlInput.value = '';
+            analyzeBtn.disabled = false;
+        }
+
+        // ── Status helpers ──
+        function showStatus(state, msg) {
+            statusBar.className = 'status-bar visible ' + state;
+            statusSpinner.style.display = (state === 'cloning' || state === 'indexing') ? 'block' : 'none';
+            statusText.textContent = msg;
+        }
+
+        // ── Cleanup on page leave ──
+        window.addEventListener('beforeunload', () => {
+            if (sessionId) {
+                navigator.sendBeacon(API_URL + '/end/' + sessionId);
+            }
+        });
+    </script>
+</body>
+</html>
