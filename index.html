@@ -558,13 +558,17 @@
         }
 
         // ── Poll Status ──
+        let pollErrorCount = 0;
         function pollStatus() {
+            pollErrorCount = 0;
             if (pollInterval) clearInterval(pollInterval);
             pollInterval = setInterval(async () => {
                 if (!sessionId) { clearInterval(pollInterval); return; }
 
                 try {
                     const res = await fetch(API_URL + '/status/' + sessionId);
+                    pollErrorCount = 0; // reset on successful connection
+
                     if (res.status === 404) {
                         clearInterval(pollInterval);
                         showExpired();
@@ -586,8 +590,15 @@
                         showStatus('error', data.error || 'An error occurred.');
                         analyzeBtn.disabled = false;
                     }
-                } catch {
-                    /* network hiccup — keep polling */
+                } catch (err) {
+                    pollErrorCount++;
+                    if (pollErrorCount > 15) {
+                        clearInterval(pollInterval);
+                        showStatus('error', 'Network error reaching backend server. Please check backend CORS & health.');
+                        analyzeBtn.disabled = false;
+                    } else if (pollErrorCount > 3) {
+                        showStatus('cloning', 'Waking up backend server… (' + pollErrorCount + ')');
+                    }
                 }
             }, 2000);
         }
